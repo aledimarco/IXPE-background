@@ -5,7 +5,6 @@ from astropy import log
 from astropy.logger import logging
 from astropy.io import fits
 import numpy as np
-#from gpdswpy.run import ixpeRunList
 
 def cut_pix(pi):
     ene=pi*0.04
@@ -142,8 +141,6 @@ def main(args=None):
                         help="Output file: rej (includes only source events), bkg (includes only rejected events) and tag (includes a tag column where events having 1 are src and 0 are bkg)", type=str)
 
     args = parser.parse_args(args)
-    print(args.path_lv1)
-    print(args.path_lv2)
     rejection(args.path_lv2, args.path_lv1, args.output)
 
 if __name__ == '__main__':
