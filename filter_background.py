@@ -119,7 +119,7 @@ def rejection(path_lv2, path_lv1, output):
                     _array = dict_events[_name]
                     columns.append(fits.Column(name=_name, array=_array, format=_format))
 
-                columns.append(fits.Column(name='BKG TAG', array=tag, format='B'))
+                columns.append(fits.Column(name='BKG_TAG', array=tag, format='B'))
                 _header_table = hdulist_input[extname].header
                 table_hdu = fits.BinTableHDU.from_columns(columns, header=_header_table)
 
