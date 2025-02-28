@@ -1,11 +1,34 @@
+###################################################################################
+#                                                                                 #
+#  This software is developed in the frame of the IXPE collaboration              #
+#  following the prescriptions reported in A. Di Marco et al., AJ 165 143 (2023)  #
+#  for the IXPE data analysis                                                     #
+#  Repository page: https://github.com/aledimarco/IXPE-background                 #
+#  February, 28, 2025 released version 2.3 fixing issues due to astropy           #
+#                                                                                 #
+#  History: v0 May, 20, 2022 - preliminar version with energy independent cuts    #
+#           v1 September, 16, 2022 - preliminar energy dependent cut              #
+#           v2 March, 3, 2023 - final energy dependent cut published              #
+#           v2.1 July, 20, 2023 - first public release                            #
+#           v2.2 July, 30, 2024 - revision tag column                             #
+#           v2.3 February, 28, 2025 - fixing issues due to astropy                #
+#                                                                                 #
+###################################################################################
+
 import os
 import sys
 import argparse
 from astropy import log
 from astropy.logger import logging
 from astropy.io import fits
+from astropy import wcs
 import numpy as np
 
+KEYWORDS = ['TCTYP7', 'TCUNI7', 'TCRPX7', 'TCRVL7', 'TCDLT7',
+            'TCTYP8', 'TCUNI8', 'TCRPX8', 'TCRVL8', 'TCDLT8',
+            'TUNIT2', 'TUNIT5']
+
+# rejection rules
 def cut_pix(pi):
     ene=pi*0.04
     y=130+(ene-2)*30
@@ -28,6 +51,11 @@ def rejection(path_lv2, path_lv1, output):
     for _key in ['TRG_ID','X', 'Y', 'Q', 'U', 'PI', 'TIME']:
         data_lv2[_key] = _run[_key]
 
+    # stoage of unit information, mainly for wcs
+    keywords_old = {}
+    for _key in KEYWORDS:
+        keywords_old[_key]=hdulist_input[1].header[_key]
+    print(hdulist_input[1].columns)
 
     # opening lv1
     keys=['NUM_PIX','EVT_FRA','TRK_BORD','TIME']
@@ -86,8 +114,22 @@ def rejection(path_lv2, path_lv1, output):
                 for i, _input_column in enumerate(input_columns):
                     _name, _format = _input_column.name, _input_column.format
                     _array = dict_events[_name]
-                    columns.append(fits.Column(name=_name, array=_array, format=_format))
+                    if _name == 'X':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit='pixel', coord_type=keywords_old['TCTYP7'],
+                                                   coord_unit=keywords_old['TCUNI7'], coord_ref_point=keywords_old['TCRPX7'],
+                                                   coord_ref_value=keywords_old['TCRVL7'], coord_inc=keywords_old['TCDLT7']))
+                    elif _name == 'Y':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit='pixel', coord_type=keywords_old['TCTYP8'],
+                                                   coord_unit=keywords_old['TCUNI8'], coord_ref_point=keywords_old['TCRPX8'],
+                                                   coord_ref_value=keywords_old['TCRVL8'], coord_inc=keywords_old['TCDLT8']))
+                    elif _name == 'TIME':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit=keywords_old['TUNIT2']))
+                    elif _name == 'PI':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit=keywords_old['TUNIT5']))
+                    else:
+                        columns.append(fits.Column(name=_name, array=_array, format=_format))
 
+                    
                 _header_table = hdulist_input[extname].header
                 table_hdu = fits.BinTableHDU.from_columns(columns, header=_header_table)
 
@@ -97,8 +139,11 @@ def rejection(path_lv2, path_lv1, output):
                 hdul_new.append(hdulist_input[extname])
 
         hdul_new.writeto(path_lv2[:-5]+'_'+output+'.fits', overwrite=True)
+        
+        print(hdul_new[1].columns)
+
     else:
-        #aggiungere la colonna con la maschera
+        #add masked column
         tag=np.zeros(len(data_lv2['TIME']))
         tag[lv2_idx]=1
 
@@ -117,7 +162,20 @@ def rejection(path_lv2, path_lv1, output):
                 for i, _input_column in enumerate(input_columns):
                     _name, _format = _input_column.name, _input_column.format
                     _array = dict_events[_name]
-                    columns.append(fits.Column(name=_name, array=_array, format=_format))
+                    if _name == 'X':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit='pixel', coord_type=keywords_old['TCTYP7'],
+                                                   coord_unit=keywords_old['TCUNI7'], coord_ref_point=keywords_old['TCRPX7'],
+                                                   coord_ref_value=keywords_old['TCRVL7'], coord_inc=keywords_old['TCDLT7']))
+                    elif _name == 'Y':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit='pixel', coord_type=keywords_old['TCTYP8'],
+                                                   coord_unit=keywords_old['TCUNI8'], coord_ref_point=keywords_old['TCRPX8'],
+                                                   coord_ref_value=keywords_old['TCRVL8'], coord_inc=keywords_old['TCDLT8']))
+                    elif _name == 'TIME':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit=keywords_old['TUNIT2']))
+                    elif _name == 'PI':
+                        columns.append(fits.Column(name=_name, array=_array, format=_format, unit=keywords_old['TUNIT5']))
+                    else:
+                        columns.append(fits.Column(name=_name, array=_array, format=_format))
 
                 columns.append(fits.Column(name='BKG_TAG', array=tag, format='B'))
                 _header_table = hdulist_input[extname].header
@@ -129,6 +187,7 @@ def rejection(path_lv2, path_lv1, output):
                 hdul_new.append(hdulist_input[extname])
 
         hdul_new.writeto(path_lv2[:-5]+'_'+output+'.fits', overwrite=True)
+        print(hdul_new[1].columns)
         
 def main(args=None):
     
