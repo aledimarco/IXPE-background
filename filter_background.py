@@ -12,6 +12,8 @@
 #           v2.1 July, 20, 2023 - first public release                            #
 #           v2.2 July, 30, 2024 - revision tag column                             #
 #           v2.3 February, 28, 2025 - fixing issues due to astropy                #
+#           v3.0 March, 31, 2026 - updated after DU2 anomaly with different       #
+#                  approaches depending on DU and time                            #
 #                                                                                 #
 ###################################################################################
 
@@ -23,6 +25,7 @@ from astropy.logger import logging
 from astropy.io import fits
 from astropy import wcs
 import numpy as np
+from astropy.time import Time
 
 KEYWORDS = ['TCTYP7', 'TCUNI7', 'TCRPX7', 'TCRVL7', 'TCDLT7',
             'TCTYP8', 'TCUNI8', 'TCRPX8', 'TCRVL8', 'TCDLT8',
@@ -31,12 +34,22 @@ KEYWORDS = ['TCTYP7', 'TCUNI7', 'TCRPX7', 'TCRVL7', 'TCDLT7',
 # rejection rules
 def cut_pix(pi):
     ene=pi*0.04
-    y=130+(ene-2)*30
+    y=70+(ene)*30
     return y
 
 def cut_fra(pi):
     ene=pi*0.04
     y=0.8*(1-np.exp(-(ene+0.25)/1.1))+ene*0.004
+    return y
+
+def cut_pix_du2(pi):
+    ene=pi*0.04
+    y=75+(ene)*41
+    return y
+
+def cut_fra_du2(pi):
+    ene=pi*0.04
+    y=0.71*(1-np.exp(-(ene+0.21)/1.5))+ene*0.0012
     return y
 
 def rejection(path_lv2, path_lv1, output):
@@ -47,6 +60,14 @@ def rejection(path_lv2, path_lv1, output):
     extension_names = list(map(lambda _ext: _ext.name, hdulist_input[1:]))
     events = hdulist_input['EVENTS'].data.T
     hdulist_input.info()
+    _du = hdulist_input[1].header['DETNAM'] #storage of the DU name
+    _obs_time = hdulist_input[1].header['DATE-OBS']
+    _obs_time = Time(_obs_time, format="isot", scale="utc")
+    print(_obs_time.mjd)
+    status=False
+    status=np.logical_and(_du=='DU2', _obs_time.mjd>60779)
+    print(_du,' Date Observation:',_obs_time,' Status DU2 anomaly:',status)
+    
     _run = hdulist_input[1].data
     for _key in ['TRG_ID','X', 'Y', 'Q', 'U', 'PI', 'TIME']:
         data_lv2[_key] = _run[_key]
@@ -86,9 +107,15 @@ def rejection(path_lv2, path_lv1, output):
     data_filt['Y']=data_lv2['Y'][_mask]
 
     # filtering
-    efra =  np.logical_and(data_filt['EVT_FRA']>cut_fra(data_filt['PI']),data_filt['EVT_FRA']<1.0)
-    numpix = np.logical_and(efra,data_filt['NUM_PIX']<cut_pix(data_filt['PI']))
-    trk_bord = np.logical_and(numpix,data_filt['TRK_BORD']<2)
+    if status==True:
+        efra =  np.logical_and(data_filt['EVT_FRA']>cut_fra_du2(data_filt['PI']),data_filt['EVT_FRA']<0.9)
+        numpix = np.logical_and(efra,data_filt['NUM_PIX']<cut_pix_du2(data_filt['PI']))
+        trk_bord = np.logical_and(numpix,data_filt['TRK_BORD']<2)
+    else:
+        efra =  np.logical_and(data_filt['EVT_FRA']>cut_fra(data_filt['PI']),data_filt['EVT_FRA']<1.0)
+        numpix = np.logical_and(efra,data_filt['NUM_PIX']<cut_pix(data_filt['PI']))
+        trk_bord = np.logical_and(numpix,data_filt['TRK_BORD']<2)
+        
     if output=='bkg':
         mask = np.where(np.logical_not(trk_bord))[0]
     else:
