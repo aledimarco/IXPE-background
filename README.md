@@ -1,6 +1,8 @@
 # IXPE-background
 Software to reject background in IXPE data following the prescription reported in the paper A. Di Marco et al., AJ 165, 143 (2023) https://iopscience.iop.org/article/10.3847/1538-3881/acba0f
 
+After DU2 anomaly occurred on April 2025, a new version of the software has been released with improved cuts which description is reported in A. Di Marco, "The hitchhiker's guide to the IXPE data analysis", arXiv:2604.03366 (https://arxiv.org/abs/2604.03366)
+
 ## Input parameters:
 - path_lv2, Input file lv2
   
