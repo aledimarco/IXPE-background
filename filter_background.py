@@ -14,6 +14,11 @@
 #           v2.3 February, 28, 2025 - fixing issues due to astropy                #
 #           v3.0 March, 31, 2026 - updated after DU2 anomaly with different       #
 #                  approaches depending on DU and time                            #
+#           v3.1 May, 07, 2026 - update after DU2 anomaly for covering the        #
+#                  periods April 14 - June 14 and after June 15 with different    #
+#                  parameters                                                     #
+#           v3.2 May, 29, 2026 - update on TRK_BORD condition after DU2 anomaly   #
+#                  to avoid introducing a systematic polarization after rejection #
 #                                                                                 #
 ###################################################################################
 
@@ -40,6 +45,16 @@ def cut_pix(pi):
 def cut_fra(pi):
     ene=pi*0.04
     y=0.8*(1-np.exp(-(ene+0.25)/1.1))+ene*0.004
+    return y
+
+def cut_pix_du2a(pi):
+    ene=pi*0.04
+    y=102+(ene)*43
+    return y
+
+def cut_fra_du2a(pi):
+    ene=pi*0.04
+    y=0.61*(1-np.exp(-(ene+0.32)/1.41))+ene*0.004
     return y
 
 def cut_pix_du2(pi):
@@ -108,9 +123,16 @@ def rejection(path_lv2, path_lv1, output):
 
     # filtering
     if status==True:
-        efra =  np.logical_and(data_filt['EVT_FRA']>cut_fra_du2(data_filt['PI']),data_filt['EVT_FRA']<0.9)
-        numpix = np.logical_and(efra,data_filt['NUM_PIX']<cut_pix_du2(data_filt['PI']))
-        trk_bord = np.logical_and(numpix,data_filt['TRK_BORD']<2)
+        if _obs_time.mjd>60841:
+            print('DU2 data acquired after 2025-06-14')
+            efra =  np.logical_and(data_filt['EVT_FRA']>cut_fra_du2(data_filt['PI']),data_filt['EVT_FRA']<0.9)
+            numpix = np.logical_and(efra,data_filt['NUM_PIX']<cut_pix_du2(data_filt['PI']))
+            trk_bord = np.logical_and(numpix,data_filt['TRK_BORD']<5)
+        else:
+            print('DU2 data acquired in the period 2025-04-14 and 2025-06-14')
+            efra =  np.logical_and(data_filt['EVT_FRA']>cut_fra_du2a(data_filt['PI']),data_filt['EVT_FRA']<0.88)
+            numpix = np.logical_and(efra,data_filt['NUM_PIX']<cut_pix_du2a(data_filt['PI']))
+            trk_bord = np.logical_and(numpix,data_filt['TRK_BORD']<5)            
     else:
         efra =  np.logical_and(data_filt['EVT_FRA']>cut_fra(data_filt['PI']),data_filt['EVT_FRA']<1.0)
         numpix = np.logical_and(efra,data_filt['NUM_PIX']<cut_pix(data_filt['PI']))
